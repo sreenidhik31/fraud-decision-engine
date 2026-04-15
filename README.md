@@ -138,8 +138,7 @@ Returns:
 }
 
 
-⸻
-
+---
 🔍 Key Features
 	•	✅ Cost-sensitive decision optimization
 	•	✅ 3-tier risk policy
