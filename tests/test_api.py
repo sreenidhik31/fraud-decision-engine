@@ -114,10 +114,7 @@ def test_batch_rejects_wrong_feature_size():
 
 def test_batch_rejects_empty_list():
     res = client.post("/score-batch", json={"transactions": []})
-    # empty batch should either 400 or return count 0 — not 500
-    assert res.status_code in (200, 400)
-    if res.status_code == 200:
-        assert res.json()["count"] == 0
+    assert res.status_code == 400
 
 
 # --- /simulate-policy ---
