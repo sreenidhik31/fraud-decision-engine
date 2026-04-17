@@ -2,3 +2,5 @@ __pychache__/
 *.pyc 
 .env 
 data/creditcard.csv
+logs/
+*.log

@@ -1,11 +1,9 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import time
 import logging
 import os
-
-from scoring import score_one, score_batch, load_artifact
 
 # --------------------------
 # Logging setup
@@ -19,16 +17,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+from scoring import score_one, score_batch, load_artifact
+
 app = FastAPI(title="Fraud Risk Scoring API")
 
-# --------------------------
 # Load artifact once at startup
-# --------------------------
 model, block_threshold, review_threshold, feature_names = load_artifact()
 
-# --------------------------
 # Monitoring / usage metrics
-# --------------------------
 metrics = {
     "total_requests": 0,
     "single_requests": 0,
@@ -39,24 +35,21 @@ metrics = {
     "block_count": 0
 }
 
-# --------------------------
 # Policy metadata / business assumptions
-# --------------------------
 ESTIMATED_TOTAL_COST = 2996
 FALSE_POSITIVE_COST = 10
 FALSE_NEGATIVE_COST = 150
 REVIEW_COST = 3
 
-# --------------------------
 # Governance metadata
-# --------------------------
 ARTIFACT_NAME = "fraud-risk-scoring-pipeline"
 MODEL_VERSION = "1.0.0"
 TRAINING_DATE = "2026-04-12"
 FEATURE_SCHEMA_VERSION = "v1"
 THRESHOLD_VERSION = "v1"
-OWNER = "Sreenidhi reddy k"
+OWNER = "Poojitha Manchi"
 DEPLOYMENT_STAGE = "development"
+
 
 # --------------------------
 # Request Schemas
@@ -75,20 +68,10 @@ class PolicySimulationRequest(BaseModel):
     block_threshold: Optional[float] = None
 
 
-# --------------------------
-# Middleware
-# --------------------------
-@app.middleware("http")
-async def log_request_time(request: Request, call_next):
-    start = time.time()
-    response = await call_next(request)
-    duration = round(time.time() - start, 4)
-
-    logger.info(
-        f"Request completed | method={request.method} | path={request.url.path} "
-        f"| status_code={response.status_code} | duration_seconds={duration}"
-    )
-    return response
+class PolicyBatchEvaluationRequest(BaseModel):
+    transactions: List[Dict[str, float]]
+    review_threshold: Optional[float] = None
+    block_threshold: Optional[float] = None
 
 
 # --------------------------
@@ -105,7 +88,10 @@ def update_decision_counts(results: List[Dict[str, object]]) -> None:
             metrics["block_count"] += 1
 
 
-def threshold_info(review_t: Optional[float] = None, block_t: Optional[float] = None) -> Dict[str, float]:
+def threshold_info(
+    review_t: Optional[float] = None,
+    block_t: Optional[float] = None
+) -> Dict[str, float]:
     return {
         "review_threshold": review_threshold if review_t is None else review_t,
         "block_threshold": block_threshold if block_t is None else block_t
@@ -131,10 +117,17 @@ def policy_summary() -> Dict[str, object]:
     }
 
 
-def get_risk_tier(prob: float, review_t: float, block_t: float) -> str:
-    if prob >= block_t:
+def get_risk_tier(
+    prob: float,
+    review_t: Optional[float] = None,
+    block_t: Optional[float] = None
+) -> str:
+    review_val = review_threshold if review_t is None else review_t
+    block_val = block_threshold if block_t is None else block_t
+
+    if prob >= block_val:
         return "HIGH"
-    if prob >= review_t:
+    elif prob >= review_val:
         return "MEDIUM"
     return "LOW"
 
@@ -142,28 +135,28 @@ def get_risk_tier(prob: float, review_t: float, block_t: float) -> str:
 def get_confidence_band(prob: float) -> str:
     if prob < 0.3:
         return "HIGH_CONFIDENCE_LEGIT"
-    if prob <= 0.7:
+    elif prob <= 0.7:
         return "UNCERTAIN"
     return "HIGH_CONFIDENCE_FRAUD"
 
 
-def get_decision_from_thresholds(prob: float, review_t: float, block_t: float) -> str:
-    if prob >= block_t:
-        return "BLOCK"
-    if prob >= review_t:
-        return "REVIEW"
-    return "ALLOW"
+def decision_reason(
+    prob: float,
+    decision: str,
+    review_t: Optional[float] = None,
+    block_t: Optional[float] = None
+) -> str:
+    review_val = review_threshold if review_t is None else review_t
+    block_val = block_threshold if block_t is None else block_t
 
-
-def decision_reason(prob: float, decision: str, review_t: float, block_t: float) -> str:
     if decision == "BLOCK":
-        return f"Probability {prob:.4f} is above block threshold {block_t:.4f}"
-    if decision == "REVIEW":
+        return f"Probability {prob:.4f} is above block threshold {block_val:.4f}"
+    elif decision == "REVIEW":
         return (
             f"Probability {prob:.4f} is above review threshold "
-            f"{review_t:.4f} but below block threshold {block_t:.4f}"
+            f"{review_val:.4f} but below block threshold {block_val:.4f}"
         )
-    return f"Probability {prob:.4f} is below review threshold {review_t:.4f}"
+    return f"Probability {prob:.4f} is below review threshold {review_val:.4f}"
 
 
 def get_decision_cost(decision: str) -> int:
@@ -181,7 +174,7 @@ def get_business_impact(decision: str) -> Dict[str, str]:
             "risk_if_ignored": "Potential fraud loss if fraudulent activity is allowed",
             "cost_note": "False positive cost may be incurred if a legitimate transaction is blocked"
         }
-    if decision == "REVIEW":
+    elif decision == "REVIEW":
         return {
             "expected_action": "Send transaction to manual review queue",
             "risk_if_ignored": "Potential fraud may pass without analyst review",
@@ -194,30 +187,63 @@ def get_business_impact(decision: str) -> Dict[str, str]:
     }
 
 
-def enrich_result(
-    result: Dict[str, object],
-    review_t: Optional[float] = None,
-    block_t: Optional[float] = None
-) -> Dict[str, object]:
-    active_review = review_threshold if review_t is None else review_t
-    active_block = block_threshold if block_t is None else block_t
-
+def enrich_result(result: Dict[str, object]) -> Dict[str, object]:
     prob = float(result["fraud_probability"])
     decision = str(result["decision"])
-    risk_tier = get_risk_tier(prob, active_review, active_block)
 
     return {
         "fraud_probability": prob,
         "decision": decision,
-        "risk_tier": risk_tier,
+        "risk_tier": get_risk_tier(prob),
         "confidence_band": get_confidence_band(prob),
-        "reason": decision_reason(prob, decision, active_review, active_block),
+        "reason": decision_reason(prob, decision),
         "decision_cost": get_decision_cost(decision),
-        "thresholds": threshold_info(active_review, active_block),
+        "thresholds": threshold_info(),
         "policy_summary": policy_summary(),
         "business_impact": get_business_impact(decision),
         "governance": governance_info()
     }
+
+
+def get_decision_from_thresholds(prob: float, review_t: float, block_t: float) -> str:
+    if prob >= block_t:
+        return "BLOCK"
+    elif prob >= review_t:
+        return "REVIEW"
+    return "ALLOW"
+
+
+def summarize_decisions(results: List[Dict[str, object]]) -> Dict[str, int]:
+    summary = {"ALLOW": 0, "REVIEW": 0, "BLOCK": 0}
+    for result in results:
+        decision = str(result["decision"])
+        if decision in summary:
+            summary[decision] += 1
+    return summary
+
+
+def estimate_batch_decision_cost(results: List[Dict[str, object]]) -> int:
+    total_cost = 0
+    for result in results:
+        total_cost += get_decision_cost(str(result["decision"]))
+    return total_cost
+
+
+def validate_transaction_schema(txn: Dict[str, float], context: str = "transaction") -> None:
+    expected_keys = set(feature_names)
+    incoming_keys = set(txn.keys())
+
+    if incoming_keys != expected_keys:
+        missing = sorted(list(expected_keys - incoming_keys))
+        extra = sorted(list(incoming_keys - expected_keys))
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"Invalid feature schema in {context}",
+                "missing_features": missing,
+                "extra_features": extra
+            }
+        )
 
 
 # --------------------------
@@ -256,7 +282,6 @@ def ready() -> Dict[str, object]:
             "model_version": MODEL_VERSION
         }
     except Exception as e:
-        logger.error(f"Ready check failed | error={str(e)}")
         raise HTTPException(status_code=500, detail=f"Model not ready: {str(e)}")
 
 
@@ -311,6 +336,7 @@ def log_summary() -> Dict[str, object]:
             "/score",
             "/score-batch",
             "/simulate-policy",
+            "/evaluate-policy-batch",
             "/policy",
             "/metrics"
         ]
@@ -318,19 +344,15 @@ def log_summary() -> Dict[str, object]:
 
 
 # --------------------------
-# Policy Simulation Route
+# Policy Simulation Routes
 # --------------------------
 @app.post("/simulate-policy")
 def simulate_policy(request: PolicySimulationRequest) -> Dict[str, object]:
     try:
         prob = float(request.fraud_probability)
+
         review_t = request.review_threshold if request.review_threshold is not None else review_threshold
         block_t = request.block_threshold if request.block_threshold is not None else block_threshold
-
-        logger.info(
-            f"Policy simulation request received | probability={prob:.4f} "
-            f"| review_threshold={review_t:.4f} | block_threshold={block_t:.4f}"
-        )
 
         if not (0 <= prob <= 1):
             raise HTTPException(status_code=400, detail="fraud_probability must be between 0 and 1")
@@ -339,26 +361,107 @@ def simulate_policy(request: PolicySimulationRequest) -> Dict[str, object]:
             raise HTTPException(status_code=400, detail="thresholds must be between 0 and 1")
 
         if review_t >= block_t:
-            raise HTTPException(status_code=400, detail="review_threshold must be less than block_threshold")
+            raise HTTPException(
+                status_code=400,
+                detail="review_threshold must be less than block_threshold"
+            )
 
         decision = get_decision_from_thresholds(prob, review_t, block_t)
-        result = {
+
+        return {
             "fraud_probability": prob,
-            "decision": decision
+            "decision": decision,
+            "risk_tier": get_risk_tier(prob, review_t, block_t),
+            "confidence_band": get_confidence_band(prob),
+            "reason": decision_reason(prob, decision, review_t, block_t),
+            "decision_cost": get_decision_cost(decision),
+            "thresholds": threshold_info(review_t, block_t),
+            "policy_summary": policy_summary(),
+            "business_impact": get_business_impact(decision),
+            "governance": governance_info()
         }
-        enriched = enrich_result(result, review_t, block_t)
-
-        logger.info(
-            f"Policy simulation completed | decision={enriched['decision']} "
-            f"| risk_tier={enriched['risk_tier']} | prob={enriched['fraud_probability']:.4f}"
-        )
-
-        return enriched
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Policy simulation error | error={str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/evaluate-policy-batch")
+def evaluate_policy_batch(request: PolicyBatchEvaluationRequest) -> Dict[str, object]:
+    try:
+        logger.info(
+            f"Policy batch evaluation request received | batch_size={len(request.transactions)}"
+        )
+
+        if not request.transactions:
+            raise HTTPException(status_code=400, detail="Batch cannot be empty")
+
+        review_t = request.review_threshold if request.review_threshold is not None else review_threshold
+        block_t = request.block_threshold if request.block_threshold is not None else block_threshold
+
+        if not (0 <= review_t <= 1 and 0 <= block_t <= 1):
+            raise HTTPException(status_code=400, detail="thresholds must be between 0 and 1")
+
+        if review_t >= block_t:
+            raise HTTPException(
+                status_code=400,
+                detail="review_threshold must be less than block_threshold"
+            )
+
+        for txn in request.transactions:
+            validate_transaction_schema(txn, context="policy batch evaluation")
+
+        model_results = score_batch(request.transactions)
+
+        evaluated_results = []
+        for result in model_results:
+            prob = float(result["fraud_probability"])
+            simulated_decision = get_decision_from_thresholds(prob, review_t, block_t)
+
+            enriched = {
+                "fraud_probability": prob,
+                "decision": simulated_decision,
+                "risk_tier": get_risk_tier(prob, review_t, block_t),
+                "confidence_band": get_confidence_band(prob),
+                "reason": decision_reason(prob, simulated_decision, review_t, block_t),
+                "decision_cost": get_decision_cost(simulated_decision),
+                "thresholds": threshold_info(review_t, block_t),
+                "business_impact": get_business_impact(simulated_decision)
+            }
+            evaluated_results.append(enriched)
+
+        decision_summary = summarize_decisions(evaluated_results)
+        average_probability = round(
+            sum(float(r["fraud_probability"]) for r in evaluated_results) / len(evaluated_results),
+            6
+        )
+        total_decision_cost = estimate_batch_decision_cost(evaluated_results)
+
+        logger.info(
+            f"Policy batch evaluation completed | batch_size={len(evaluated_results)} "
+            f"| allow={decision_summary['ALLOW']} | review={decision_summary['REVIEW']} "
+            f"| block={decision_summary['BLOCK']} | estimated_decision_cost={total_decision_cost}"
+        )
+
+        return {
+            "batch_size": len(evaluated_results),
+            "thresholds_used": threshold_info(review_t, block_t),
+            "decision_summary": decision_summary,
+            "average_fraud_probability": average_probability,
+            "estimated_total_decision_cost": total_decision_cost,
+            "policy_summary": {
+                "objective": "Evaluate batch-level decision mix under active threshold policy"
+            },
+            "governance": governance_info(),
+            "results": evaluated_results
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Policy batch evaluation error | error={str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -372,8 +475,7 @@ def score_transaction(txn: Transaction) -> Dict[str, object]:
         metrics["total_requests"] += 1
         metrics["single_requests"] += 1
 
-        if len(txn.data) != len(feature_names):
-            raise HTTPException(status_code=400, detail="Invalid feature size")
+        validate_transaction_schema(txn.data)
 
         result = score_one(txn.data)
         enriched = enrich_result(result)
@@ -382,8 +484,9 @@ def score_transaction(txn: Transaction) -> Dict[str, object]:
         update_decision_counts([result])
 
         logger.info(
-            f"Single scoring completed | decision={enriched['decision']} | "
-            f"risk_tier={enriched['risk_tier']} | prob={enriched['fraud_probability']:.4f}"
+            f"Decision={enriched['decision']} | "
+            f"Risk={enriched['risk_tier']} | "
+            f"Prob={enriched['fraud_probability']:.4f}"
         )
 
         return enriched
@@ -405,21 +508,8 @@ def score_transactions(batch: BatchTransaction) -> Dict[str, object]:
         if not batch.transactions:
             raise HTTPException(status_code=400, detail="Batch cannot be empty")
 
-        expected_keys = set(feature_names)
-
         for txn in batch.transactions:
-            incoming_keys = set(txn.keys())
-            if incoming_keys != expected_keys:
-                missing = sorted(list(expected_keys - incoming_keys))
-                extra = sorted(list(incoming_keys - expected_keys))
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "message": "Invalid feature schema in batch",
-                        "missing_features": missing,
-                        "extra_features": extra
-                    }
-                )
+            validate_transaction_schema(txn, context="batch")
 
         results = score_batch(batch.transactions)
         enriched_results = [enrich_result(r) for r in results]
@@ -427,7 +517,9 @@ def score_transactions(batch: BatchTransaction) -> Dict[str, object]:
         metrics["transactions_scored"] += len(results)
         update_decision_counts(results)
 
-        logger.info(f"Batch scoring completed | batch_size={len(enriched_results)}")
+        logger.info(
+            f"Batch scoring completed | batch_size={len(enriched_results)}"
+        )
 
         return {
             "results": enriched_results,

@@ -34,3 +34,7 @@
 2026-04-16 12:44:02,002 - INFO - Request completed | method=GET | path=/favicon.ico | status_code=404 | duration_seconds=0.0007
 2026-04-16 12:44:08,074 - INFO - Request completed | method=GET | path=/docs | status_code=200 | duration_seconds=0.0005
 2026-04-16 12:44:08,287 - INFO - Request completed | method=GET | path=/openapi.json | status_code=200 | duration_seconds=0.0458
+2026-04-16 20:03:02,728 - INFO - Request completed | method=GET | path=/ | status_code=200 | duration_seconds=0.0058
+2026-04-16 20:03:02,783 - INFO - Request completed | method=GET | path=/favicon.ico | status_code=404 | duration_seconds=0.0004
+2026-04-16 20:03:08,638 - INFO - Request completed | method=GET | path=/docs | status_code=200 | duration_seconds=0.0005
+2026-04-16 20:03:08,848 - INFO - Request completed | method=GET | path=/openapi.json | status_code=200 | duration_seconds=0.0339

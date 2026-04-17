@@ -177,3 +177,19 @@ def test_metrics_increments_after_score():
     client.post("/score", json=valid_transaction())
     after = client.get("/metrics").json()["total_requests"]
     assert after == before + 1
+
+def test_evaluate_policy_batch_returns_summary():
+    txn = valid_transaction()["data"]
+    res = client.post("/evaluate-policy-batch", json={
+        "transactions": [txn, txn]
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert "decision_summary" in data
+    assert "estimated_total_decision_cost" in data
+    assert data["batch_size"] == 2
+
+
+def test_evaluate_policy_batch_rejects_empty_batch():
+    res = client.post("/evaluate-policy-batch", json={"transactions": []})
+    assert res.status_code == 400
