@@ -1,9 +1,22 @@
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import time
 import logging
 import os
+
+# --------------------------
+# App setup
+# --------------------------
+BASE_DIR = Path(__file__).resolve().parent
+
+app = FastAPI(title="Fraud Risk Scoring API")
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 # --------------------------
 # Logging setup
@@ -18,8 +31,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from scoring import score_one, score_batch, load_artifact
-
-app = FastAPI(title="Fraud Risk Scoring API")
 
 # Load artifact once at startup
 model, block_threshold, review_threshold, feature_names = load_artifact()
@@ -47,7 +58,7 @@ MODEL_VERSION = "1.0.0"
 TRAINING_DATE = "2026-04-12"
 FEATURE_SCHEMA_VERSION = "v1"
 THRESHOLD_VERSION = "v1"
-OWNER = "Poojitha Manchi"
+OWNER = "Sreenidhi reddy k "
 DEPLOYMENT_STAGE = "development"
 
 
@@ -384,6 +395,13 @@ def log_summary() -> Dict[str, object]:
         ]
     }
 
+@app.get("/app", response_class=HTMLResponse)
+def serve_frontend(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/debug-routes")
+def debug_routes():
+    return [route.path for route in app.routes]
 
 # --------------------------
 # Policy Simulation Routes

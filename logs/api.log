@@ -38,3 +38,26 @@
 2026-04-16 20:03:02,783 - INFO - Request completed | method=GET | path=/favicon.ico | status_code=404 | duration_seconds=0.0004
 2026-04-16 20:03:08,638 - INFO - Request completed | method=GET | path=/docs | status_code=200 | duration_seconds=0.0005
 2026-04-16 20:03:08,848 - INFO - Request completed | method=GET | path=/openapi.json | status_code=200 | duration_seconds=0.0339
+2026-04-17 03:21:19,624 - INFO - Score request received | features_count=30
+2026-04-17 03:21:19,662 - INFO - Decision=ALLOW | Risk=LOW | Prob=0.1052
+2026-04-17 03:21:21,545 - INFO - Score request received | features_count=30
+2026-04-17 03:21:21,553 - INFO - Decision=ALLOW | Risk=LOW | Prob=0.1052
+2026-04-17 03:21:24,688 - INFO - Score request received | features_count=30
+2026-04-17 03:21:24,695 - INFO - Decision=ALLOW | Risk=LOW | Prob=0.1052
+2026-04-17 03:21:25,785 - INFO - Score request received | features_count=30
+2026-04-17 03:21:25,791 - INFO - Decision=ALLOW | Risk=LOW | Prob=0.1052
+2026-04-17 03:23:35,866 - INFO - Score request received | features_count=30
+2026-04-17 03:23:35,877 - INFO - Decision=ALLOW | Risk=LOW | Prob=0.1052
+2026-04-17 03:41:11,440 - INFO - Policy batch evaluation request received | batch_size=3
+2026-04-17 03:41:11,476 - INFO - Policy batch evaluation completed | batch_size=3 | allow=3 | review=0 | block=0 | estimated_decision_cost=0
+2026-04-17 03:41:38,212 - INFO - Cost impact simulation request received | batch_size=3
+2026-04-17 03:41:38,221 - INFO - Cost impact simulation completed | batch_size=3 | current_cost=0 | baseline_cost=0 | cost_difference=0
+2026-04-17 03:42:12,170 - INFO - Cost impact simulation request received | batch_size=3
+2026-04-17 03:42:17,572 - INFO - Cost impact simulation request received | batch_size=3
+2026-04-17 03:42:22,320 - INFO - Cost impact simulation request received | batch_size=3
+2026-04-17 04:00:51,244 - INFO - Score request received | features_count=30
+2026-04-17 04:00:51,256 - INFO - Decision=ALLOW | Risk=LOW | Prob=0.1052
+2026-04-17 04:01:13,750 - INFO - Policy batch evaluation request received | batch_size=3
+2026-04-17 04:01:13,756 - INFO - Policy batch evaluation completed | batch_size=3 | allow=3 | review=0 | block=0 | estimated_decision_cost=0
+2026-04-17 04:01:29,538 - INFO - Cost impact simulation request received | batch_size=3
+2026-04-17 04:01:29,548 - INFO - Cost impact simulation completed | batch_size=3 | current_cost=0 | baseline_cost=0 | cost_difference=0
