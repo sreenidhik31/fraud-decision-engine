@@ -3,18 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fraud Risk Decision System</title>
+  <title>Cost-Optimized Fraud Decision System</title>
+  <p class="tagline">
+  Reduce fraud + operational cost through threshold-driven decision intelligence.
+</p>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <div class="container">
     <header class="hero">
-      <h1>Fraud Risk Decision System</h1>
-      <p>
-        Cost-aware fraud scoring, batch policy evaluation, and cost impact simulation.
-      </p>
-      <div class="hero-actions">
-        <button id="check-health-btn">Check API Status</button>
+      <div>
+        <h1>Cost-Optimized Fraud Decision System</h1>
+        <p>
+          Cost-aware fraud scoring, batch policy evaluation, and cost impact simulation.
+        </p>
+      </div>
+      <div class="hero-status">
+        <button id="check-health-btn" class="secondary-btn">Check API Status</button>
         <span id="health-status" class="status-pill">Unknown</span>
       </div>
     </header>
@@ -26,62 +31,68 @@
       <button class="tab-button" data-tab="governance">Policy & Governance</button>
     </nav>
 
-    <!-- Single Score -->
+    <!-- SINGLE SCORE -->
     <section id="single-score" class="tab-content active">
-      <div class="panel">
+      <div class="card">
         <h2>Single Transaction Scoring</h2>
         <p class="muted">
-          Use sample data, paste transaction JSON, upload CSV, or manually edit fields.
+          Load a valid sample, paste JSON, upload CSV, or manually edit the transaction only if needed.
         </p>
 
         <div class="button-row">
-          <button id="load-sample-btn">Load Sample Transaction</button>
+          <button id="load-sample-btn" class="primary-btn">Load Sample Transaction</button>
           <input type="file" id="single-csv-file" accept=".csv" />
-          <button id="use-single-csv-btn">Use First Row from CSV</button>
+          <button id="use-single-csv-btn" class="secondary-btn">Use First Row from CSV</button>
         </div>
 
-        <label for="single-json-input">Paste Transaction JSON</label>
-        <textarea id="single-json-input" rows="10" placeholder='{"Time":0.0,"V1":0.1,...,"Amount":100.0}'></textarea>
+        <label for="single-json-input">Transaction JSON</label>
+        <textarea
+          id="single-json-input"
+          rows="12"
+          placeholder='{"Time":0.0,"V1":0.1,...,"Amount":100.0}'
+        ></textarea>
+
         <div class="button-row">
-          <button id="apply-json-btn">Apply JSON</button>
-          <button id="score-btn" class="primary">Score Transaction</button>
+          <button id="apply-json-btn" class="secondary-btn">Apply JSON</button>
+          <button id="score-btn" class="primary-btn">Score Transaction</button>
         </div>
 
-        <details>
+        <details class="advanced-box">
           <summary>Advanced Manual Editing</summary>
           <div id="single-form-grid" class="form-grid"></div>
         </details>
       </div>
 
-      <div class="panel">
-        <h2>Result</h2>
-        <div class="metrics-grid">
+      <div class="card">
+        <h2>Single Score Result</h2>
+
+        <div class="metrics-grid four">
           <div class="metric-card">
-            <span class="metric-label">Decision</span>
-            <span id="single-decision" class="metric-value">—</span>
+            <div class="metric-label">Decision</div>
+            <div id="single-decision" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Risk Tier</span>
-            <span id="single-risk-tier" class="metric-value">—</span>
+            <div class="metric-label">Risk Tier</div>
+            <div id="single-risk-tier" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Fraud Probability</span>
-            <span id="single-probability" class="metric-value">—</span>
+            <div class="metric-label">Fraud Probability</div>
+            <div id="single-probability" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Decision Cost</span>
-            <span id="single-cost" class="metric-value">—</span>
+            <div class="metric-label">Decision Cost</div>
+            <div id="single-cost" class="metric-value">—</div>
           </div>
         </div>
 
-        <div class="info-box">
+        <div class="info-panel">
           <h3>Reason</h3>
-          <p id="single-reason">—</p>
+          <p id="single-reason">No result yet.</p>
         </div>
 
-        <div class="info-box">
+        <div class="info-panel">
           <h3>Business Impact</h3>
-          <ul>
+          <ul class="impact-list">
             <li><strong>Expected Action:</strong> <span id="single-action">—</span></li>
             <li><strong>Risk if Ignored:</strong> <span id="single-risk-ignored">—</span></li>
             <li><strong>Cost Note:</strong> <span id="single-cost-note">—</span></li>
@@ -95,22 +106,20 @@
       </div>
     </section>
 
-    <!-- Batch Policy Evaluation -->
+    <!-- BATCH POLICY EVALUATION -->
     <section id="batch-eval" class="tab-content">
-      <div class="panel">
+      <div class="card">
         <h2>Batch Policy Evaluation</h2>
         <p class="muted">
-          Upload a transaction batch CSV and evaluate the decision mix under current or custom thresholds.
+          Upload a batch CSV to evaluate decision mix and estimated decision cost under active or custom thresholds.
         </p>
 
         <input type="file" id="batch-csv-file" accept=".csv" />
 
-        <div class="inline-fields">
-          <label>
-            <input type="checkbox" id="batch-custom-thresholds-check" />
-            Use custom thresholds
-          </label>
-        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="batch-custom-thresholds-check" />
+          Use custom thresholds
+        </label>
 
         <div class="threshold-grid">
           <div>
@@ -123,54 +132,55 @@
           </div>
         </div>
 
-        <button id="evaluate-batch-btn" class="primary">Run Batch Evaluation</button>
+        <button id="evaluate-batch-btn" class="primary-btn">Run Batch Evaluation</button>
       </div>
 
-      <div class="panel">
+      <div class="card">
         <h2>Batch Evaluation Summary</h2>
-        <div class="metrics-grid">
+
+        <div class="metrics-grid three">
           <div class="metric-card">
-            <span class="metric-label">Batch Size</span>
-            <span id="batch-size" class="metric-value">—</span>
+            <div class="metric-label">Batch Size</div>
+            <div id="batch-size" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Avg Fraud Probability</span>
-            <span id="batch-avg-prob" class="metric-value">—</span>
+            <div class="metric-label">Avg Fraud Probability</div>
+            <div id="batch-avg-prob" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Estimated Decision Cost</span>
-            <span id="batch-cost" class="metric-value">—</span>
+            <div class="metric-label">Estimated Decision Cost</div>
+            <div id="batch-cost" class="metric-value">—</div>
           </div>
         </div>
 
-        <div class="metrics-grid">
+        <div class="metrics-grid three">
           <div class="metric-card">
-            <span class="metric-label">ALLOW</span>
-            <span id="batch-allow" class="metric-value">—</span>
+            <div class="metric-label">ALLOW</div>
+            <div id="batch-allow" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">REVIEW</span>
-            <span id="batch-review" class="metric-value">—</span>
+            <div class="metric-label">REVIEW</div>
+            <div id="batch-review" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">BLOCK</span>
-            <span id="batch-block" class="metric-value">—</span>
+            <div class="metric-label">BLOCK</div>
+            <div id="batch-block" class="metric-value">—</div>
           </div>
         </div>
 
         <details>
-          <summary>Full Batch Response</summary>
+          <summary>Full Evaluation Response</summary>
           <pre id="batch-json-result">No result yet.</pre>
         </details>
       </div>
     </section>
 
-    <!-- Cost Impact -->
+    <!-- COST IMPACT -->
     <section id="cost-impact" class="tab-content">
-      <div class="panel">
+      <div class="card">
         <h2>Cost Impact Simulation</h2>
         <p class="muted">
-          Compare current threshold policy against baseline thresholds using the uploaded batch CSV.
+          Compare current threshold policy against a baseline policy using an uploaded batch CSV.
         </p>
 
         <input type="file" id="cost-csv-file" accept=".csv" />
@@ -194,38 +204,39 @@
           </div>
         </div>
 
-        <button id="simulate-cost-btn" class="primary">Run Cost Impact Simulation</button>
+        <button id="simulate-cost-btn" class="primary-btn">Run Cost Impact Simulation</button>
       </div>
 
-      <div class="panel">
+      <div class="card">
         <h2>Cost Comparison</h2>
-        <div class="metrics-grid">
+
+        <div class="metrics-grid four">
           <div class="metric-card">
-            <span class="metric-label">Current Policy Cost</span>
-            <span id="current-policy-cost" class="metric-value">—</span>
+            <div class="metric-label">Current Policy Cost</div>
+            <div id="current-policy-cost" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Baseline Policy Cost</span>
-            <span id="baseline-policy-cost" class="metric-value">—</span>
+            <div class="metric-label">Baseline Policy Cost</div>
+            <div id="baseline-policy-cost" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Cost Difference</span>
-            <span id="cost-difference" class="metric-value">—</span>
+            <div class="metric-label">Cost Difference</div>
+            <div id="cost-difference" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Improvement</span>
-            <span id="cost-improvement" class="metric-value">—</span>
+            <div class="metric-label">Improvement</div>
+            <div id="cost-improvement" class="metric-value small">—</div>
           </div>
         </div>
 
-        <div class="dual-panel">
-          <div class="info-box">
+        <div class="split-grid">
+          <div class="info-panel">
             <h3>Current Policy Decision Mix</h3>
-            <pre id="current-policy-summary">—</pre>
+            <pre id="current-policy-summary">No result yet.</pre>
           </div>
-          <div class="info-box">
+          <div class="info-panel">
             <h3>Baseline Policy Decision Mix</h3>
-            <pre id="baseline-policy-summary">—</pre>
+            <pre id="baseline-policy-summary">No result yet.</pre>
           </div>
         </div>
 
@@ -236,39 +247,42 @@
       </div>
     </section>
 
-    <!-- Governance -->
+    <!-- GOVERNANCE -->
     <section id="governance" class="tab-content">
-      <div class="panel">
+      <div class="card full-width">
         <h2>Policy & Governance</h2>
-        <button id="refresh-governance-btn" class="primary">Refresh Policy Data</button>
+        <div class="button-row">
+          <button id="refresh-governance-btn" class="primary-btn">Refresh Policy Data</button>
+        </div>
 
-        <div class="metrics-grid">
+        <div class="metrics-grid four">
           <div class="metric-card">
-            <span class="metric-label">Review Threshold</span>
-            <span id="gov-review-threshold" class="metric-value">—</span>
+            <div class="metric-label">Review Threshold</div>
+            <div id="gov-review-threshold" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Block Threshold</span>
-            <span id="gov-block-threshold" class="metric-value">—</span>
+            <div class="metric-label">Block Threshold</div>
+            <div id="gov-block-threshold" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Estimated Total Cost</span>
-            <span id="gov-total-cost" class="metric-value">—</span>
+            <div class="metric-label">Estimated Total Cost</div>
+            <div id="gov-total-cost" class="metric-value">—</div>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Feature Count</span>
-            <span id="gov-feature-count" class="metric-value">—</span>
+            <div class="metric-label">Feature Count</div>
+            <div id="gov-feature-count" class="metric-value">—</div>
           </div>
         </div>
 
-        <div class="info-box">
-          <h3>Cost Assumptions</h3>
-          <pre id="cost-assumptions-box">—</pre>
-        </div>
-
-        <div class="info-box">
-          <h3>Governance Metadata</h3>
-          <pre id="governance-box">—</pre>
+        <div class="split-grid">
+          <div class="info-panel">
+            <h3>Cost Assumptions</h3>
+            <pre id="cost-assumptions-box">No data yet.</pre>
+          </div>
+          <div class="info-panel">
+            <h3>Governance Metadata</h3>
+            <pre id="governance-box">No data yet.</pre>
+          </div>
         </div>
 
         <details>
@@ -278,7 +292,7 @@
       </div>
     </section>
 
-    <div id="message-box" class="message-box hidden"></div>
+    <div id="message-box" class="toast hidden"></div>
   </div>
 
   <script src="/static/app.js"></script>
