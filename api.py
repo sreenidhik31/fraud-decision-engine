@@ -302,15 +302,11 @@ def evaluate_results_with_thresholds(
 # --------------------------
 # Core Routes
 # --------------------------
+from fastapi.responses import RedirectResponse
+
 @app.get("/")
-def home() -> Dict[str, object]:
-    return {
-        "status": "ok",
-        "message": "Fraud Risk Scoring API is running",
-        "block_threshold": block_threshold,
-        "review_threshold": review_threshold,
-        "version": MODEL_VERSION
-    }
+def root():
+    return RedirectResponse(url="/app")
 
 
 @app.get("/health")
@@ -396,8 +392,12 @@ def log_summary() -> Dict[str, object]:
     }
 
 @app.get("/app", response_class=HTMLResponse)
-def serve_frontend(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+def serve_app(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={}
+    )
 
 @app.get("/debug-routes")
 def debug_routes():
