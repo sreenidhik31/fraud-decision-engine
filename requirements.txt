@@ -1,4 +1,3 @@
-streamlit
 pandas
 scikit-learn
 joblib
@@ -6,4 +5,4 @@ fastapi
 uvicorn
 pydantic
 numpy
-requests
+jinja2
