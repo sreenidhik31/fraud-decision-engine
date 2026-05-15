@@ -1,196 +1,181 @@
-# 💳 Cost-Optimized Fraud Detection System with Risk-Tier Decision Engine
+# Fraud Decision Engine
 
-## 🚀 Overview
-Traditional fraud detection models optimize for **accuracy** — but real-world systems optimize for **cost**.
+A machine learning project that converts fraud-risk predictions into operational business decisions using a cost-aware 3-tier fraud policy.
 
-This project implements a **production-style fraud decision system** that:
-- Predicts fraud probability using machine learning
-- Applies a **3-tier decision policy (ALLOW / REVIEW / BLOCK)**
-- Minimizes **total financial + operational cost**
-- Exposes a **FastAPI-based scoring service**
-- Supports **batch inference, policy simulation, logging, and governance metadata**
+## Live Demo
+
+* App: https://fraud-decision-engine.onrender.com/app
+* API Docs: https://fraud-decision-engine.onrender.com/docs
 
 ---
 
-## 🧠 Business Problem
-Fraud detection operates under **extreme class imbalance (~0.17% fraud rate)**:
+## Overview
 
-- ❌ False negatives → direct financial loss  
-- ❌ False positives → customer friction  
-- ❌ Manual review → operational cost  
+Most fraud-detection projects stop at classification metrics like accuracy or ROC-AUC. This project focuses on what happens after prediction — deciding whether to allow, review, or block a transaction based on business risk and operational cost.
 
-Most ML models ignore this.
+The system applies a 3-tier decision strategy:
 
-👉 This system reframes fraud detection as a **cost minimization problem**, not just classification.
+| Decision | Purpose                                          |
+| -------- | ------------------------------------------------ |
+| ALLOW    | Low-risk transactions                            |
+| REVIEW   | Medium-risk transactions sent for analyst review |
+| BLOCK    | High-risk transactions                           |
 
----
-
-## 💡 Solution
-A **cost-aware fraud decision engine**:
-
-1. Model predicts fraud probability  
-2. Policy engine applies thresholds:
-   - 🟢 ALLOW → low risk  
-   - 🟡 REVIEW → uncertain  
-   - 🔴 BLOCK → high risk  
-3. Outputs enriched decision with:
-   - risk tier  
-   - reasoning  
-   - business impact  
-   - governance metadata  
+Using optimized review and block thresholds, the policy reduced simulated fraud decision cost from approximately **4,800 to 2,996 (~37.6%)** compared to a naive threshold baseline under predefined fraud-loss and operational-cost assumptions.
 
 ---
 
-## 📉 Impact (Simulated)
+## Key Features
 
-| Strategy | Total Cost |
-|---------|----------|
-| Naive threshold (0.5) | ~4800 |
-| Cost-optimized thresholds | **2996** |
-
-### 🔥 Result
-- ↓ **~37% reduction in total cost**
-- ↓ unnecessary manual reviews  
-- ↑ better balance between fraud risk & user experience  
-
----
-
-## 📊 Data Context
-- Dataset: Credit Card Fraud Detection  
-- Fraud rate: **~0.17% (highly imbalanced)**  
-- Used as a proxy for real-world financial systems  
-
-### Why this matters:
-- Simulates **rare event detection**
-- Enables **cost-sensitive optimization**
-- Reflects **real production challenges**
+* Real-time fraud scoring with FastAPI
+* Batch transaction inference
+* Threshold-based policy simulation
+* Cost-impact evaluation workflows
+* Interactive frontend for fraud-risk testing
+* API validation and structured inference pipelines
+* CI testing with GitHub Actions
+* Public cloud deployment on Render
 
 ---
 
-## 🏗️ System Architecture
+## Tech Stack
 
-[ Input Transaction ]
-↓
-[ ML Model → Fraud Probability ]
-↓
-[ Decision Engine ]
-	•	review_threshold
-	•	block_threshold
-↓
-[ Risk Tier Assignment ]
-↓
-[ Business Output ]
-	•	decision
-	•	cost
-	•	explanation
-↓
-[ FastAPI Service ]
-↓
-[ Logging + Metrics + Governance ]
+**Backend:** FastAPI, Python, Scikit-learn
+**Frontend:** HTML, CSS, JavaScript
+**Testing & DevOps:** Pytest, Docker, GitHub Actions
+**Deployment:** Render
 
 ---
 
-## ⚙️ API Endpoints
+## Run Locally
 
-### 🔹 Single Transaction
-`POST /score`
+Clone the repository:
 
-Returns:
-- fraud probability
-- decision (ALLOW / REVIEW / BLOCK)
-- risk tier
-- confidence band
-- business impact
+```bash
+git clone https://github.com/sreenidhik31/fraud-decision-engine.git
+cd fraud-decision-engine
+```
 
----
+Create and activate a virtual environment:
 
-### 🔹 Batch Scoring
-`POST /score-batch`
-- Processes multiple transactions  
-- Returns enriched results  
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
 
----
+Install dependencies:
 
-### 🔹 Policy Simulation
-`POST /simulate-policy`
-- Test custom thresholds  
-- Evaluate decisions instantly  
-
----
-
-### 🔹 Monitoring
-- `/metrics` → usage stats  
-- `/log-summary` → logging config  
-- `/policy` → decision logic  
-- `/model-info` → model metadata  
-
----
-
-## 🧾 Example Output
-
-```json
-{
-  "fraud_probability": 0.1052,
-  "decision": "ALLOW",
-  "risk_tier": "LOW",
-  "confidence_band": "HIGH_CONFIDENCE_LEGIT",
-  "decision_cost": 0
-}
-
-
----
-🔍 Key Features
-	•	✅ Cost-sensitive decision optimization
-	•	✅ 3-tier risk policy
-	•	✅ Batch + real-time scoring
-	•	✅ Policy simulation
-	•	✅ Logging (logs/api.log)
-	•	✅ Governance metadata
-	•	✅ CI/CD with GitHub Actions
-
-⸻
-
-🧱 Tech Stack
-	•	Python
-	•	FastAPI
-	•	Scikit-learn
-	•	Pandas / NumPy
-	•	Uvicorn
-	•	GitHub Actions
-
-⸻
-
-🧪 How to Run
-
+```bash
 pip install -r requirements.txt
+```
+
+Start the FastAPI application:
+
+```bash
 uvicorn api:app --reload
+```
 
-Visit:
+Open locally:
 
-http://127.0.0.1:8000/docs
+* App: http://127.0.0.1:8000/app
+* API Docs: http://127.0.0.1:8000/docs
+* Policy Metadata: http://127.0.0.1:8000/policy
 
+---
 
-⸻
+## Run Tests
 
-🧠 Key Insight
+```bash
+pytest tests/ -v
+```
 
-Fraud detection is not a classification problem —
-it is a decision optimization problem under asymmetric cost.
+---
 
-⸻
+## Run with Docker
 
-📌 Future Improvements
-	•	Threshold optimization via cost curves
-	•	Real-time streaming (Kafka / AWS)
-	•	SHAP explainability
-	•	Adaptive thresholds
+Build the container:
 
-⸻
+```bash
+docker build -t fraud-decision-engine .
+```
 
-👤 Author
+Run the container:
 
-Sreenidhi k
-M.S. Data Science & AI
+```bash
+docker run -p 8000:8000 fraud-decision-engine
+```
 
+Open locally:
 
+* App: http://127.0.0.1:8000/app
+* API Docs: http://127.0.0.1:8000/docs
 
+---
+
+## Repository Structure
+
+```text
+fraud-decision-engine/
+├── .github/
+│   └── workflows/
+├── model/
+├── notebooks/
+├── static/
+├── templates/
+├── tests/
+├── api.py
+├── scoring.py
+├── requirements.txt
+└── Dockerfile
+```
+
+### Directory Notes
+
+* `model/`
+  Serialized Scikit-learn model artifacts and threshold metadata.
+
+* `notebooks/`
+  Threshold tuning, policy simulation, and offline evaluation workflows.
+
+* `tests/`
+  API validation and inference pipeline tests.
+
+* `static/` and `templates/`
+  Frontend assets and HTML templates served directly from FastAPI.
+
+---
+
+## API Endpoints
+
+| Method | Endpoint                 | Description                       |
+| ------ | ------------------------ | --------------------------------- |
+| POST   | `/score`                 | Single transaction scoring        |
+| POST   | `/score-batch`           | Batch transaction inference       |
+| POST   | `/simulate-policy`       | Threshold-based policy simulation |
+| POST   | `/evaluate-policy-batch` | Batch policy evaluation           |
+| POST   | `/simulate-cost-impact`  | Compare policy cost impact        |
+| GET    | `/policy`                | Governance and policy metadata    |
+| GET    | `/metrics`               | API usage metrics                 |
+| GET    | `/model-info`            | Model metadata and schema         |
+| GET    | `/ready`                 | Readiness check                   |
+
+---
+
+## Highlights
+
+* Designed a cost-sensitive fraud decision workflow instead of a standard binary classifier
+* Reduced simulated fraud decision cost by ~37.6% using optimized threshold policies
+* Built REST APIs for scoring, simulation, and batch evaluation
+* Implemented schema validation, feature alignment, and model caching
+* Deployed a live public application with CI testing workflows
+* Structured the project using modular inference and policy layers
+
+---
+
+## Future Improvements
+
+* Real-time streaming inference
+* Drift monitoring and retraining workflows
+* Analyst feedback integration
+* Production-grade monitoring and observability
+* Feature-store integration
