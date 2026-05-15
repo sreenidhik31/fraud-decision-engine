@@ -1,6 +1,6 @@
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -14,7 +14,7 @@ import os
 # --------------------------
 BASE_DIR = Path(__file__).resolve().parent
 
-app = FastAPI(title="Fraud Risk Scoring API")
+app = FastAPI(title="Fraud Decision Engine API")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
@@ -46,11 +46,17 @@ metrics = {
     "block_count": 0
 }
 
+# --------------------------
 # Policy metadata / business assumptions
+# These values match the notebook simulation that produced 2996.
+# --------------------------
+BASELINE_TOTAL_COST = 4800
 ESTIMATED_TOTAL_COST = 2996
-FALSE_POSITIVE_COST = 10
-FALSE_NEGATIVE_COST = 150
-REVIEW_COST = 3
+
+FALSE_POSITIVE_COST = 5      # Cost/friction when legitimate transaction is blocked
+FALSE_NEGATIVE_COST = 200    # Fraud loss when fraud is allowed
+REVIEW_COST = 2              # Analyst/manual review cost per reviewed transaction
+REVIEW_CATCH_RATE = 0.70     # Assumed percentage of reviewed fraud caught by analysts
 
 # Governance metadata
 ARTIFACT_NAME = "fraud-risk-scoring-pipeline"
@@ -58,7 +64,7 @@ MODEL_VERSION = "1.0.0"
 TRAINING_DATE = "2026-04-12"
 FEATURE_SCHEMA_VERSION = "v1"
 THRESHOLD_VERSION = "v1"
-OWNER = "Sreenidhi reddy k "
+OWNER = "Sreenidhi Reddy K"
 DEPLOYMENT_STAGE = "development"
 
 
@@ -84,12 +90,14 @@ class PolicyBatchEvaluationRequest(BaseModel):
     review_threshold: Optional[float] = None
     block_threshold: Optional[float] = None
 
+
 class CostImpactSimulationRequest(BaseModel):
     transactions: List[Dict[str, float]]
     review_threshold: Optional[float] = None
     block_threshold: Optional[float] = None
     baseline_review_threshold: float = 0.5
     baseline_block_threshold: float = 0.9
+
 
 # --------------------------
 # Helpers
@@ -127,10 +135,32 @@ def governance_info() -> Dict[str, object]:
     }
 
 
+def cost_assumptions() -> Dict[str, object]:
+    return {
+        "false_positive_cost": FALSE_POSITIVE_COST,
+        "false_negative_cost": FALSE_NEGATIVE_COST,
+        "review_cost": REVIEW_COST,
+        "review_catch_rate": REVIEW_CATCH_RATE
+    }
+
+
 def policy_summary() -> Dict[str, object]:
+    cost_reduction = BASELINE_TOTAL_COST - ESTIMATED_TOTAL_COST
+    cost_reduction_percent = round(
+        (cost_reduction / BASELINE_TOTAL_COST) * 100,
+        2
+    )
+
     return {
         "objective": "Minimize total fraud + operational cost",
-        "estimated_total_cost": ESTIMATED_TOTAL_COST
+        "baseline_total_cost": BASELINE_TOTAL_COST,
+        "optimized_total_cost": ESTIMATED_TOTAL_COST,
+        "cost_reduction": cost_reduction,
+        "cost_reduction_percent": cost_reduction_percent,
+        "note": (
+            "Offline notebook simulation used true labels, fraud loss, block friction, "
+            "manual review cost, and review catch-rate assumptions."
+        )
     }
 
 
@@ -177,6 +207,14 @@ def decision_reason(
 
 
 def get_decision_cost(decision: str) -> int:
+    """
+    Online decision-cost proxy.
+
+    NOTE:
+    This endpoint does not receive true labels, so it cannot know whether a BLOCK
+    is a true positive or false positive, or whether ALLOW missed fraud.
+    The 2996 project result comes from offline notebook evaluation using labels.
+    """
     if decision == "REVIEW":
         return REVIEW_COST
     if decision == "BLOCK":
@@ -189,13 +227,13 @@ def get_business_impact(decision: str) -> Dict[str, str]:
         return {
             "expected_action": "Block transaction immediately",
             "risk_if_ignored": "Potential fraud loss if fraudulent activity is allowed",
-            "cost_note": "False positive cost may be incurred if a legitimate transaction is blocked"
+            "cost_note": "Block/friction cost may be incurred if a legitimate transaction is blocked"
         }
     elif decision == "REVIEW":
         return {
             "expected_action": "Send transaction to manual review queue",
             "risk_if_ignored": "Potential fraud may pass without analyst review",
-            "cost_note": "Review cost applied instead of immediate block or unrestricted approval"
+            "cost_note": "Manual review cost applied instead of immediate block or unrestricted approval"
         }
     return {
         "expected_action": "Allow transaction",
@@ -240,6 +278,10 @@ def summarize_decisions(results: List[Dict[str, object]]) -> Dict[str, int]:
 
 
 def estimate_batch_decision_cost(results: List[Dict[str, object]]) -> int:
+    """
+    Online batch cost proxy based only on predicted decision type.
+    Offline notebook cost uses true labels and is the source of the 2996 result.
+    """
     total_cost = 0
     for result in results:
         total_cost += get_decision_cost(str(result["decision"]))
@@ -261,7 +303,8 @@ def validate_transaction_schema(txn: Dict[str, float], context: str = "transacti
                 "extra_features": extra
             }
         )
-    
+
+
 def validate_threshold_pair(review_t: float, block_t: float) -> None:
     if not (0 <= review_t <= 1 and 0 <= block_t <= 1):
         raise HTTPException(status_code=400, detail="thresholds must be between 0 and 1")
@@ -302,8 +345,6 @@ def evaluate_results_with_thresholds(
 # --------------------------
 # Core Routes
 # --------------------------
-from fastapi.responses import RedirectResponse
-
 @app.get("/")
 def root():
     return RedirectResponse(url="/app")
@@ -363,11 +404,7 @@ def policy() -> Dict[str, object]:
         "decision_strategy": "3-tier cost-aware fraud decisioning",
         "thresholds": threshold_info(),
         "policy_summary": policy_summary(),
-        "cost_assumptions": {
-            "false_positive_cost": FALSE_POSITIVE_COST,
-            "false_negative_cost": FALSE_NEGATIVE_COST,
-            "review_cost": REVIEW_COST
-        },
+        "cost_assumptions": cost_assumptions(),
         "model": {
             "type": str(type(model)),
             "feature_count": len(feature_names)
@@ -391,6 +428,7 @@ def log_summary() -> Dict[str, object]:
         ]
     }
 
+
 @app.get("/app", response_class=HTMLResponse)
 def serve_app(request: Request):
     return templates.TemplateResponse(
@@ -399,9 +437,6 @@ def serve_app(request: Request):
         context={}
     )
 
-@app.get("/debug-routes")
-def debug_routes():
-    return [route.path for route in app.routes]
 
 # --------------------------
 # Policy Simulation Routes
@@ -417,14 +452,7 @@ def simulate_policy(request: PolicySimulationRequest) -> Dict[str, object]:
         if not (0 <= prob <= 1):
             raise HTTPException(status_code=400, detail="fraud_probability must be between 0 and 1")
 
-        if not (0 <= review_t <= 1 and 0 <= block_t <= 1):
-            raise HTTPException(status_code=400, detail="thresholds must be between 0 and 1")
-
-        if review_t >= block_t:
-            raise HTTPException(
-                status_code=400,
-                detail="review_threshold must be less than block_threshold"
-            )
+        validate_threshold_pair(review_t, block_t)
 
         decision = get_decision_from_thresholds(prob, review_t, block_t)
 
@@ -461,36 +489,13 @@ def evaluate_policy_batch(request: PolicyBatchEvaluationRequest) -> Dict[str, ob
         review_t = request.review_threshold if request.review_threshold is not None else review_threshold
         block_t = request.block_threshold if request.block_threshold is not None else block_threshold
 
-        if not (0 <= review_t <= 1 and 0 <= block_t <= 1):
-            raise HTTPException(status_code=400, detail="thresholds must be between 0 and 1")
-
-        if review_t >= block_t:
-            raise HTTPException(
-                status_code=400,
-                detail="review_threshold must be less than block_threshold"
-            )
+        validate_threshold_pair(review_t, block_t)
 
         for txn in request.transactions:
             validate_transaction_schema(txn, context="policy batch evaluation")
 
         model_results = score_batch(request.transactions)
-
-        evaluated_results = []
-        for result in model_results:
-            prob = float(result["fraud_probability"])
-            simulated_decision = get_decision_from_thresholds(prob, review_t, block_t)
-
-            enriched = {
-                "fraud_probability": prob,
-                "decision": simulated_decision,
-                "risk_tier": get_risk_tier(prob, review_t, block_t),
-                "confidence_band": get_confidence_band(prob),
-                "reason": decision_reason(prob, simulated_decision, review_t, block_t),
-                "decision_cost": get_decision_cost(simulated_decision),
-                "thresholds": threshold_info(review_t, block_t),
-                "business_impact": get_business_impact(simulated_decision)
-            }
-            evaluated_results.append(enriched)
+        evaluated_results = evaluate_results_with_thresholds(model_results, review_t, block_t)
 
         decision_summary = summarize_decisions(evaluated_results)
         average_probability = round(
@@ -512,7 +517,8 @@ def evaluate_policy_batch(request: PolicyBatchEvaluationRequest) -> Dict[str, ob
             "average_fraud_probability": average_probability,
             "estimated_total_decision_cost": total_decision_cost,
             "policy_summary": {
-                "objective": "Evaluate batch-level decision mix under active threshold policy"
+                "objective": "Evaluate batch-level decision mix under active threshold policy",
+                "note": "This endpoint estimates online decision cost using predicted decision type only."
             },
             "governance": governance_info(),
             "results": evaluated_results
@@ -596,8 +602,10 @@ def simulate_cost_impact(request: CostImpactSimulationRequest) -> Dict[str, obje
                 )
             },
             "policy_summary": {
-                "objective": "Compare cost impact of active policy versus baseline policy"
+                "objective": "Compare cost impact of active policy versus baseline policy",
+                "note": "Interactive endpoint uses online decision-cost proxy; offline notebook simulation produced 4800 to 2996 result."
             },
+            "cost_assumptions": cost_assumptions(),
             "governance": governance_info()
         }
 
@@ -606,7 +614,6 @@ def simulate_cost_impact(request: CostImpactSimulationRequest) -> Dict[str, obje
     except Exception as e:
         logger.error(f"Cost impact simulation error | error={str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-    
 
 
 # --------------------------
